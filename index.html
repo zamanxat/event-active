@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Enactus IITU | ОС</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #070b14; color: #e2e8f0; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); }
+        .tab-btn.active { background: #fbbf24; color: #000; box-shadow: 0 10px 20px -5px rgba(251, 191, 36, 0.4); }
+        .enactus-gold { color: #fbbf24; }
+        .enactus-bg-gold { background-color: #fbbf24; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .color-input::-webkit-color-swatch { border-radius: 0.75rem; border: 2px solid #fbbf24; }
+        .color-input { width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; border: 2px solid #fbbf24; }
+        .btn-gold { background: linear-gradient(90deg, #fbbf24 0%, #f59e42 100%); color: #222; font-weight: bold; box-shadow: 0 2px 8px #fbbf2440; }
+        .btn-gold:hover { background: linear-gradient(90deg, #f59e42 0%, #fbbf24 100%); }
+    </style>
+</head>
+<body>
+
+    <!-- Custom Modal -->
+    <div id="custom-modal" class="fixed inset-0 z-[200] flex items-center justify-center p-6 hidden bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-300">
+        <div class="glass max-w-sm w-full p-8 rounded-[2.5rem] text-center transform scale-95 transition-transform duration-300" id="modal-card">
+            <div id="modal-icon" class="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20"></div>
+            <h3 id="modal-title" class="text-2xl font-black mb-2 italic"></h3>
+            <p id="modal-text" class="text-slate-400 text-sm mb-8 leading-relaxed"></p>
+            <div class="flex gap-3" id="modal-actions"></div>
+        </div>
+    </div>
+
+    <!-- Навигация -->
+    <nav class="sticky top-0 z-50 border-b border-white/5 glass px-6 h-20 flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <img src="telegram-cloud-document-2-5192876380127274476-Photoroom.png" alt="Enactus Logo" class="w-14 h-14 object-contain rounded-xl bg-white p-2 shadow-lg" style="width: 150px; height: 100px; background-color: none; background: none;">
+            <div class="leading-none">
+                <span class="text-xs font-black text-yellow-500 uppercase tracking-[0.3em]"></span>
+                <h1 class="text-xl font-extrabold tracking-tighter"><span class="text-slate-500 font-light"></span></h1>
+            </div>
+        </div>
+        <div id="nav-actions">
+            <button onclick="document.getElementById('admin-auth').classList.remove('hidden')" class="btn-gold px-6 py-2.5 rounded-xl font-black text-xs uppercase flex items-center gap-2">
+                <i data-lucide="lock"></i> Админ
+            </button>
+        </div>
+    </nav>
+
+    <!-- Статистика беті -->
+    <main id="page-stats" class="container mx-auto px-2 md:px-4 py-6 max-w-2xl">
+        <!-- Жиналыс баннері -->
+        <div id="meeting-banner" class="mb-10 bg-gradient-to-br from-yellow-500 to-orange-600 p-8 rounded-[2.5rem] relative overflow-hidden shadow-2xl shadow-yellow-500/10">
+            <div class="relative z-10 flex justify-between items-center text-black">
+                <div>
+                    <p class="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-1">Собрашка уақыты</p>
+                    <h3 id="meeting-info" class="text-2xl font-black"></h3>
+                </div>
+                <i data-lucide="clock-4" class="w-12 h-12 opacity-30"></i>
+            </div>
+        </div>
+        <!-- Қатысушылар және тапсырмалар -->
+        <section id="leaderboard" class="space-y-6"></section>
+    </main>
+
+    <!-- Админ беті -->
+    <div id="page-admin" class="container mx-auto px-4 py-8 max-w-2xl hidden">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-3xl font-black italic tracking-tighter uppercase">Басқару <span class="text-yellow-500">орталығы</span></h2>
+            <button onclick="logoutAdmin()" class="p-4 glass text-red-500 rounded-2xl hover:bg-red-500/10 transition-colors">
+                <i data-lucide="power" class="w-6 h-6"></i>
+            </button>
+        </div>
+        <div id="admin-tabs" class="flex bg-slate-900/80 p-2 md:p-3 rounded-[2rem] mb-8 border border-white/5 overflow-x-auto gap-3 no-scrollbar" style="scrollbar-width: thin;">
+            <button onclick="switchAdminTab('users')" class="tab-btn flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2 md:px-6 md:py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">МҮШЕЛЕР</button>
+            <button onclick="switchAdminTab('tasks')" class="tab-btn flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2 md:px-6 md:py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">ТАПСЫРМАЛАР</button>
+            <button onclick="switchAdminTab('levels')" class="tab-btn flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2 md:px-6 md:py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">ДЕҢГЕЙЛЕР</button>
+            <button onclick="switchAdminTab('sobrashka')" class="tab-btn flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2 md:px-6 md:py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">СОБРАШКА</button>
+            <button onclick="switchAdminTab('settings')" class="tab-btn flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2 md:px-6 md:py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">БАПТАУ</button>
+            <button onclick="switchAdminTab('history')" class="tab-btn flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2 md:px-6 md:py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all">ТАРИХ</button>
+        </div>
+        <div id="admin-content" class="min-h-[60vh] pb-20"></div>
+    </div>
+
+    <!-- Админ авторизация -->
+    <div id="admin-auth" class="fixed inset-0 z-[150] glass flex items-center justify-center p-6 hidden">
+        <div class="bg-slate-900 border border-white/10 p-10 rounded-[3rem] w-full max-w-sm text-center">
+            <div class="w-24 h-24 enactus-bg-gold rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-yellow-500/20">
+                <i data-lucide="shield-check" class="w-12 h-12 text-black"></i>
+            </div>
+            <h3 class="text-2xl font-black mb-8 uppercase tracking-widest">Админ рұқсаты</h3>
+            <input type="password" id="admin-pass-input" placeholder="Кодты енгізіңіз" 
+                   class="w-full bg-black/40 border border-white/10 rounded-2xl p-6 text-center text-2xl tracking-[0.4em] outline-none focus:border-yellow-500 transition-all">
+            <button onclick="checkAdminPass()" class="w-full enactus-bg-gold text-black py-5 rounded-2xl font-black uppercase mt-6 shadow-xl shadow-yellow-500/20">Кіру</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
