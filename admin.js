@@ -104,13 +104,15 @@ async function switchAdminTab(tab) {
                                 <option value="present" ${u.sobrashka_status === 'present' ? 'selected' : ''}>Келді</option>
                                 <option value="absent" ${u.sobrashka_status === 'absent' ? 'selected' : ''}>Келмеді</option>
                                 <option value="active" ${u.sobrashka_status === 'active' ? 'selected' : ''}>Активно</option>
+                                <option value="reason" ${u.sobrashka_status === 'reason' ? 'selected' : ''}>Себепті</option>
                             </select>
                             <button onclick="saveSobrashkaStatus(${u.id})" class="btn-gold px-4 py-2 rounded-xl font-black">Сақтау</button>
                             <div class="text-xs text-slate-400 mt-1 md:mt-0 md:ml-3">
                                 ${u.sobrashka_status ? (
                                     u.sobrashka_status === 'present' ? 'Келді' :
                                     u.sobrashka_status === 'absent' ? 'Келмеді' :
-                                    u.sobrashka_status === 'active' ? 'Активно' : 'Статус жоқ'
+                                    u.sobrashka_status === 'active' ? 'Активно' :
+                                    u.sobrashka_status === 'reason' ? 'Себепті' : 'Статус жоқ'
                                 ) : 'Статус жоқ'}
                                 ${u.sobrashka_status_at ? `<br><span class="text-[10px]">Сақталған: ${new Date(u.sobrashka_status_at).toLocaleString('kk-KZ')}</span>` : ''}
                             </div>
@@ -142,6 +144,10 @@ async function switchAdminTab(tab) {
                     <div>
                         <span class="text-xs">Активно</span>
                         <input id="points-active" type="number" class="w-full bg-black/40 border border-white/5 rounded-2xl p-3" value="${state.settings.points_sobrashka_active ?? 10}">
+                    </div>
+                    <div>
+                        <span class="text-xs">Себепті</span>
+                        <input id="points-reason" type="number" class="w-full bg-black/40 border border-white/5 rounded-2xl p-3" value="${state.settings.points_sobrashka_reason ?? 0}">
                     </div>
                 </div>
                 <button onclick="saveSobrashkaPoints()" class="btn-gold w-full py-4 rounded-2xl font-black mt-2">Сақтау</button>
@@ -359,22 +365,58 @@ async function setActive(id, active) {
     switchAdminTab('sobrashka');
 }
 
+let adminAttempts = parseInt(localStorage.getItem('admin_attempts') || '0');
+let adminBlockedUntil = parseInt(localStorage.getItem('admin_blocked_until') || '0');
+
 async function checkAdminPass() {
+    updateAdminAuthInfo();
+    const now = Date.now();
+    let adminAttempts = parseInt(localStorage.getItem('admin_attempts') || '0');
+    let adminBlockedUntil = parseInt(localStorage.getItem('admin_blocked_until') || '0');
+    if (adminBlockedUntil && now < adminBlockedUntil) {
+        const left = Math.ceil((adminBlockedUntil - now) / 1000);
+        showPopup({ title: "Блок", text: `Сіз блокта тұрсыз. Қалған уақыт: ${left} сек.`, icon: "lock" });
+        updateAdminAuthInfo();
+        return;
+    }
     const pass = document.getElementById('admin-pass-input').value;
     const { data, error } = await _supabase.from('settings').select('admin_password').limit(1).single();
     if (error || !data) {
         showPopup({ title: "Қате", text: "Базадан құпия сөз табылмады!", icon: "alert-triangle" });
+        updateAdminAuthInfo();
         return;
     }
     if (pass === data.admin_password) {
+        localStorage.setItem('admin_attempts', '0');
+        localStorage.setItem('admin_blocked_until', '0');
         localStorage.setItem('admin_logged', 'true');
         document.getElementById('admin-auth').classList.add('hidden');
         showPage('admin');
         switchAdminTab('users'); // По умолчанию мүшелер
         updateNav();
+        await init();
     } else {
-        showPopup({ title: "Қате", text: "Құпия сөз дұрыс емес!", icon: "alert-triangle" });
+        adminAttempts++;
+        localStorage.setItem('admin_attempts', adminAttempts);
+        const left = 3 - adminAttempts;
+        if (adminAttempts >= 3) {
+            adminBlockedUntil = now + 60 * 1000; // 1 минут блок
+            localStorage.setItem('admin_blocked_until', adminBlockedUntil);
+            showPopup({ title: "Блок", text: "3 рет қате енгізілді. 1 минут блок.", icon: "lock" });
+        } else {
+            showPopup({ title: "Қате", text: `Пароль қате! Қалған попытка: ${left}`, icon: "alert-triangle" });
+        }
+        updateAdminAuthInfo();
+        return;
     }
+    // Пароль дұрыс
+    localStorage.setItem('admin_attempts', '0');
+    localStorage.setItem('admin_blocked_until', '0');
+    localStorage.setItem('admin_logged', 'true');
+    document.getElementById('admin-auth').classList.add('hidden');
+    showPage('admin');
+    updateNav();
+    await init();
 }
 
 function logoutAdmin() {
@@ -478,6 +520,11 @@ window.onload = function() {
     }
     updateNav();
     init();
+    // Админ авторизация беті ашылғанда info жаңарту
+    const adminAuth = document.getElementById('admin-auth');
+    if (adminAuth) {
+        adminAuth.addEventListener('transitionend', updateAdminAuthInfo);
+    }
 };
 
 function openSobrashkaTab() {
@@ -501,15 +548,14 @@ async function saveSobrashkaStatus(id) {
         showPopup({ title: "Қате", text: "Статус таңдаңыз!", icon: "alert-triangle" });
         return;
     }
-    // settings-ті база арқылы әр басқан сайын қайтадан аламыз!
-    const { data: settings } = await _supabase.from('settings').select('points_active_attendance, points_absent, points_sobrashka_active').limit(1).single();
+    const { data: settings } = await _supabase.from('settings').select('points_active_attendance, points_absent, points_sobrashka_active, points_sobrashka_reason').limit(1).single();
     const { data: user } = await _supabase.from('users').select('score').eq('id', id).single();
     let score = user.score;
 
-    // Әр басқан сайын балл қосылады/шегеріледі (ескі баллды алып тастамаймыз!)
     if (val === 'present') score += settings.points_active_attendance ?? 5;
     if (val === 'absent') score += settings.points_absent ?? -10;
     if (val === 'active') score += settings.points_sobrashka_active ?? 10;
+    if (val === 'reason') score += settings.points_sobrashka_reason ?? 0;
 
     await _supabase.from('users').update({
         score,
@@ -524,19 +570,21 @@ async function saveSobrashkaPoints() {
     const present = parseInt(document.getElementById('points-present').value);
     const absent = parseInt(document.getElementById('points-absent').value);
     const active = parseInt(document.getElementById('points-active').value);
+    const reason = parseInt(document.getElementById('points-reason').value);
 
     const { error } = await _supabase.from('settings').update({
         points_active_attendance: present,
         points_absent: absent,
-        points_sobrashka_active: active
+        points_sobrashka_active: active,
+        points_sobrashka_reason: reason
     }).eq('id', 1);
 
     if (error) {
         showPopup({ title: "Қате", text: error.message, icon: "alert-triangle" });
     } else {
         showPopup({ title: "Дайын", text: "Собрашка балдары сақталды", icon: "check" });
-        await init(); // state.settings жаңарту үшін!
-        switchAdminTab('settings'); // input-тар жаңару үшін!
+        await init();
+        switchAdminTab('settings');
     }
 }
 
@@ -560,4 +608,22 @@ async function updateMeetingDate(newDate) {
     } else {
         alert('Уақытты жаңарту мүмкін болмады!');
     }
+}
+
+function updateAdminAuthInfo() {
+    const now = Date.now();
+    let adminAttempts = parseInt(localStorage.getItem('admin_attempts') || '0');
+    let adminBlockedUntil = parseInt(localStorage.getItem('admin_blocked_until') || '0');
+    const leftAttempts = Math.max(0, 3 - adminAttempts);
+    const leftSeconds = adminBlockedUntil && now < adminBlockedUntil
+        ? Math.ceil((adminBlockedUntil - now) / 1000)
+        : 0;
+    const infoEl = document.getElementById('admin-auth-info');
+    if (!infoEl) return;
+    infoEl.innerHTML = `
+        <div class="text-xs text-slate-400 mt-3">
+            Қалған попытка: <span class="font-bold text-yellow-400">${leftAttempts}</span><br>
+            ${leftSeconds > 0 ? `Блоктан шығуға уақыт: <span class="font-bold text-red-500">${leftSeconds} сек</span>` : ''}
+        </div>
+    `;
 }
