@@ -4,6 +4,8 @@ const _supabase = supabase.createClient(_URL, _KEY);
 
 let state = { users: [], levels: [], settings: {}, currentTab: 'users' };
 
+let sortOrder = 'desc'; // 'desc' — жоғарыдан төмен, 'asc' — төменнен жоғары
+
 async function init() {
     const { data: users } = await _supabase.from('users').select('*');
     const { data: levels } = await _supabase.from('levels').select('*').order('min_score', { ascending: true });
@@ -24,8 +26,29 @@ function renderStats() {
     } else {
         meetingInfo.innerHTML = 'Уақыты белгісіз';
     }
-    let html = '';
-    state.users.forEach((user, index) => {
+
+    // Сортировка кнопкасы — ортасына және стильді
+    let html = `
+        <div class="flex justify-center mb-6">
+            <button onclick="toggleSortOrder()" 
+                class="bg-[#fbbf24] text-black px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg hover:scale-105 transition-all border border-yellow-400 focus:ring-2 focus:ring-yellow-400"
+                style="min-width:180px">
+                <span class="flex items-center gap-1">
+                    <i data-lucide="arrow-up" class="${sortOrder === 'asc' ? 'text-yellow-900' : 'text-slate-400'} w-5 h-5"></i>
+                    <i data-lucide="arrow-down" class="${sortOrder === 'desc' ? 'text-yellow-900' : 'text-slate-400'} w-5 h-5"></i>
+                </span>
+                <span>
+                    ${sortOrder === 'desc' ? 'Жоғарыдан төмен' : 'Төменнен жоғары'}
+                </span>
+            </button>
+        </div>
+    `;
+
+    // Пайдаланушыларды сортировка жасау
+    let sortedUsers = [...state.users];
+    sortedUsers.sort((a, b) => sortOrder === 'desc' ? b.score - a.score : a.score - b.score);
+
+    sortedUsers.forEach((user, index) => {
         const myLevel = [...state.levels].reverse().find(l => user.score >= l.min_score) || state.levels[0];
         const nextLevel = state.levels.find(l => l.min_score > user.score);
         let progress = nextLevel ? ((user.score - myLevel.min_score) / (nextLevel.min_score - myLevel.min_score)) * 100 : 100;
@@ -79,6 +102,11 @@ function renderStats() {
     });
     container.innerHTML = html || '<p class="text-center opacity-30 py-20">Команда жиналмады...</p>';
     lucide.createIcons();
+}
+
+function toggleSortOrder() {
+    sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+    renderStats();
 }
 
 function updateNav() {
@@ -142,3 +170,80 @@ window.onload = function() {
     updateNav();
     init();
 };
+
+// Кнопкаға id беріңіз: <button id="save-btn" ...>
+async function saveSomething(event) {
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    const oldText = btn.innerText;
+    btn.innerText = 'Жүктелуде...';
+    try {
+        // ...логика...
+        btn.innerText = 'Сақталды!';
+        setTimeout(() => { btn.innerText = oldText; btn.disabled = false; }, 1200);
+    } catch {
+        btn.innerText = 'Қате!';
+        setTimeout(() => { btn.innerText = oldText; btn.disabled = false; }, 1200);
+    }
+}
+
+// Мысалы, тапсырма сақтау функциясының басына немесе соңына қосыңыз:
+async function saveTask(event) {
+    if (event) event.preventDefault();
+    const btn = document.getElementById('save-task-btn');
+    btn.disabled = true;
+    const oldText = btn.innerText;
+    btn.innerText = 'Жүктелуде...';
+    try {
+        // ...тапсырманы сақтау логикасы...
+        btn.innerText = 'Сақталды!';
+        setTimeout(() => { btn.innerText = oldText; btn.disabled = false; }, 1200);
+    } catch {
+        btn.innerText = 'Қате!';
+        setTimeout(() => { btn.innerText = oldText; btn.disabled = false; }, 1200);
+    }
+}
+
+// Файлдың соңына қосыңыз:
+document.addEventListener('touchstart', function preventZoom(e) {
+    if (e.touches.length > 1) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function preventDoubleTapZoom(e) {
+    const now = new Date().getTime();
+    if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+    }
+    lastTouchEnd = now;
+}, false);
+
+// Тапсырма сақтағанда немесе кез келген жерде (мысалы, saveTask ішінде):
+localStorage.setItem('scrollY', window.scrollY);
+
+// window.onload ішінде (файлдың басында немесе соңында):
+window.onload = function() {
+    // ...бар код...
+    const scrollY = localStorage.getItem('scrollY');
+    if (scrollY) {
+        setTimeout(() => window.scrollTo(0, parseInt(scrollY)), 100);
+        localStorage.removeItem('scrollY');
+    }
+    // ...бар код...
+};
+
+async function registerPushToken(userId) {
+    try {
+        const token = await messaging.getToken({ vapidKey: 'YOUR_VAPID_KEY' });
+        if (token) {
+            await _supabase.from('users').update({ push_token: token }).eq('id', userId);
+        }
+    } catch (e) {
+        console.log('FCM token error:', e);
+    }
+}
+
+// Қолданушы кіргенде:
+registerPushToken(currentUserId);
