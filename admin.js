@@ -179,6 +179,11 @@ async function switchAdminTab(tab) {
                 <input id="admin-password" type="text" class="w-full bg-black/40 border border-white/5 rounded-2xl p-4 outline-none focus:border-yellow-500 mb-3" value="${state.settings.admin_password || ''}" placeholder="Жаңа құпия сөз">
                 <button onclick="saveAdminPassword()" class="btn-gold w-full py-4 rounded-2xl font-black mt-2">Сақтау</button>
             </div>
+            <div class="glass p-6 rounded-[2rem] mb-6">
+                <label class="text-[10px] font-black text-blue-500 uppercase mb-3 block">Push шаблоны</label>
+                <input id="push-template" type="text" class="w-full bg-black/40 border border-white/5 rounded-2xl p-3" value="${state.settings.push_template || '(user сізге жаңа тапсырма берілді! тапсырма дедлайн уақыты: time)'}">
+                <button onclick="savePushTemplate()" class="btn-gold w-full py-4 rounded-2xl font-black mt-2">Сақтау</button>
+            </div>
         `;
     }
     if (tab === 'history') {
