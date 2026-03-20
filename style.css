@@ -1,0 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+    padding: 8px 20px;
+    border-radius: 99px;
+    background: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: #16a34a;
+    color: white;
+}
+
+.user-card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bg { height: 6px; background: #111827; border-radius: 10px; overflow: hidden; }
+.progress-bar { height: 100%; border-radius: 10px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+
+input[type="number"] { -moz-appearance: textfield; }
+input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
